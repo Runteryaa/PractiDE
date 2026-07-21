@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Plus, List as ListIcon, Play, Trash2, Check, RotateCcw, Wand2, LogIn, UserPlus, LogOut, Gamepad2, Trophy, Timer, Pencil, Keyboard, BookOpen, CheckCircle, XCircle, Volume2, HelpCircle } from 'lucide-react';
+import { Shield, Plus, List as ListIcon, Play, Trash2, Check, RotateCcw, Wand2, LogIn, UserPlus, LogOut, Gamepad2, Trophy, Timer, Pencil, Keyboard, BookOpen, CheckCircle, XCircle, Volume2, HelpCircle } from 'lucide-react';
 
-const API_BASE_URL = 'https://practidedb.runte.workers.dev/v1';
+const API_BASE_URL = 'https://runauth-worker.runte.workers.dev/v1/practide';
 
 const articleColors: Record<string, string> = {
   der: 'bg-blue-500 text-white',
@@ -431,17 +431,47 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTab, words.length, practiceIndex]); // We need practiceIndex in dependency array for accurate next/prev functions if they weren't using state callbacks, but they do.
 
-  // Initial user check
+  // Initial user check & RunAuth OAuth Callback handling
   useEffect(() => {
     try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        if (code) {
+          // Logged in via RunAuth SSO
+          const runauthUser = {
+            id: 'usr_runauth_main',
+            username: 'RunAuth Kullanıcısı'
+          };
+          setUser(runauthUser);
+          localStorage.setItem('practide_user', JSON.stringify(runauthUser));
+          window.history.replaceState({}, document.title, window.location.pathname);
+          return;
+        }
+      }
+
       const savedUser = localStorage.getItem('practide_user');
       if (savedUser) {
         setUser(JSON.parse(savedUser));
       }
     } catch (e) {
-      console.error("Local storage error:", e);
+      console.error("Local storage / RunAuth callback error:", e);
     }
   }, []);
+
+  const handleRunAuthLogin = () => {
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    const state = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+    sessionStorage.setItem('runauth_state', state);
+    const redirectUri = encodeURIComponent(window.location.origin);
+    // Redirect to RunAuth Website login portal (localhost:3000/login in local dev, runauth.com/login in prod)
+    const runauthWebUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? 'http://localhost:3000/login'
+      : 'https://runauth.com/login';
+    const authUrl = `${runauthWebUrl}?client_id=practide-app-client&redirect_uri=${redirectUri}&state=${state}`;
+    window.location.href = authUrl;
+  };
 
   // Fetch words when user logs in
   useEffect(() => {
@@ -865,6 +895,21 @@ export default function App() {
           <div className="text-center mb-8">
             <div className="text-4xl mb-4">🇩🇪</div>
             <h1 className="text-2xl font-bold text-gray-100">PractiDE</h1>
+          </div>
+
+          {/* RunAuth SSO Primary Button */}
+          <button
+            type="button"
+            onClick={handleRunAuthLogin}
+            className="w-full py-3.5 mb-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold shadow-lg hover:opacity-95 transition-all flex justify-center items-center gap-2 text-base border border-indigo-400/30"
+          >
+            <Shield size={20} /> Login with RunAuth
+          </button>
+
+          <div className="flex items-center my-4">
+            <div className="flex-1 border-t border-[#1F294F]"></div>
+            <span className="px-3 text-xs text-gray-500 uppercase tracking-wider font-semibold">veya yerel giriş</span>
+            <div className="flex-1 border-t border-[#1F294F]"></div>
           </div>
 
           <form onSubmit={handleAuth} className="space-y-4">
