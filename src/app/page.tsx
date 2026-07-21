@@ -597,6 +597,24 @@ export default function App() {
         }
       }
 
+      if (guessedArticle === 'diğer') {
+        if (resultEn.toLowerCase().startsWith('to ')) {
+          guessedArticle = 'fiil';
+        } else if (resultEn) {
+          const testEnText = resultEn.toLowerCase().startsWith('the ') ? resultEn : `the ${resultEn}`;
+          const articleTest = await fetchTranslation(testEnText, 'en', 'de');
+          const testParts = articleTest.split(' ');
+          
+          if (testParts.length > 1) {
+            const possibleArticle = testParts[0].toLowerCase();
+            if (['der', 'die', 'das'].includes(possibleArticle)) {
+              guessedArticle = possibleArticle;
+              resultDe = resultDe.charAt(0).toUpperCase() + resultDe.slice(1);
+            }
+          }
+        }
+      }
+
       if (guessedArticle === 'die') {
         const trLower = resultTr.toLowerCase().trim();
         const enLower = resultEn.toLowerCase().trim();
@@ -607,28 +625,6 @@ export default function App() {
           
         if (isTrPlural || isEnPlural) {
           guessedArticle = 'die (çoğul)';
-        }
-      }
-
-      if (guessedArticle === 'diğer') {
-        if (resultEn.toLowerCase().startsWith('to ')) {
-          guessedArticle = 'fiil';
-        } else if (sourceLang !== 'de' && resultEn) {
-          const testEnText = resultEn.toLowerCase().startsWith('the ') ? resultEn : `the ${resultEn}`;
-          const articleTest = await fetchTranslation(testEnText, 'en', 'de');
-          const testParts = articleTest.split(' ');
-          
-          if (testParts.length > 1) {
-            const possibleArticle = testParts[0].toLowerCase();
-            if (['der', 'die', 'das'].includes(possibleArticle)) {
-              guessedArticle = possibleArticle;
-              resultDe = resultDe.charAt(0).toUpperCase() + resultDe.slice(1);
-              
-              if (guessedArticle === 'die' && (resultTr.toLowerCase().trim().endsWith('lar') || resultTr.toLowerCase().trim().endsWith('ler'))) {
-                  guessedArticle = 'die (çoğul)';
-              }
-            }
-          }
         }
       }
 
