@@ -1,60 +1,47 @@
-# RunAuth Integration Plan (PractiDE Client)
+# RunAuth Integration Plan & Status (PractiDE Client)
 
-This document outlines the plan for modifying the **PractiDE** application to support Single Sign-On (SSO) login using the **RunAuth** identity provider.
+This document outlines the architecture, integration plan, and current progress for integrating **PractiDE** with the **RunAuth** identity provider.
 
 ---
 
-## 1. Goal
-Replace or augment the existing custom username/password login system in PractiDE with a standard **"Login with RunAuth"** flow.
+## 1. Status & Progress
+
+- [x] **Oracle Database Schema Setup**: `runauth_users`, `runauth_sessions`, and `runauth_apps` created on Oracle Autonomous DB.
+- [x] **PractiDE App Registration**: Registered `practide-app-client` in `runauth_apps` with `redirect_uri: http://localhost:3000/api/auth/callback`.
+- [ ] **RunAuth OAuth Server & UI**: Pending Cloudflare Worker deployment for RunAuth.
+- [ ] **PractiDE Frontend Integration**: Pending "Login with RunAuth" button & callback route.
 
 ---
 
 ## 2. Integration Architecture
 
-PractiDE will act as an OAuth 2.0 / OpenID Connect client.
+PractiDE acts as an OAuth 2.0 / OpenID Connect (OIDC) client application. When a user clicks **"Login with RunAuth"**, they are redirected to the external RunAuth login portal (Google-style SSO).
 
-### Configuration Variables (To add to PractiDE)
-- `RUNAUTH_CLIENT_ID`: `"practide"`
-- `RUNAUTH_ISSUER_URL`: `"https://<runauth-domain>"`
-- `RUNAUTH_CALLBACK_URL`: `"https://<practide-domain>/callback"` (or `http://localhost:3000/callback` in dev)
+### Configuration Variables in PractiDE
+- `RUNAUTH_CLIENT_ID`: `"practide-app-client"`
+- `RUNAUTH_CLIENT_SECRET`: `"secret_practide_123"`
+- `RUNAUTH_ISSUER_URL`: `"https://<runauth-worker-domain>"`
+- `RUNAUTH_CALLBACK_URL`: `"http://localhost:3000/api/auth/callback"` (or production domain)
 
 ---
 
-## 3. Implementation Steps
+## 3. Implementation Steps (PractiDE Side)
 
-### Step 1: Add "Login with RunAuth" UI Button
-In [src/app/page.tsx](file:///C:/Users/Runterya/Desktop/practde/src/app/page.tsx), update the Authentication Tab / Login Form to include a "Login with RunAuth" button:
-- Clicking the button generates a random `state` (for CSRF protection, stored in `localStorage`).
+### Step 1: Add "Login with RunAuth" Button
+In [src/app/page.tsx](file:///C:/Users/Runterya/Desktop/practde/src/app/page.tsx), add a prominent "Login with RunAuth" button:
+- Clicking the button generates a random `state` string stored in `sessionStorage`.
 - Redirects the browser to:
   ```
-  https://<runauth-domain>/oauth/authorize?client_id=practide&redirect_uri=https://<practide-domain>/callback&response_type=code&state=<state_val>&scope=openid profile email
+  https://<runauth-domain>/oauth/authorize?client_id=practide-app-client&redirect_uri=http://localhost:3000/api/auth/callback&response_type=code&state=<state_val>&scope=openid profile email
   ```
 
-### Step 2: Create a Callback Page in Next.js
-Create a new Next.js page at `src/app/callback/page.tsx`:
-- This page handles the redirect from RunAuth.
-- It parses the URL parameters: `code` and `state`.
-- **Validation**: Verifies that the URL's `state` matches the `state` stored in `localStorage`.
-- **Token Exchange**: Sends a POST request to PractiDE's backend API (`/v1/api/auth-callback`) with the `code`.
-- **Session Initiation**: Once the backend validates the token, it stores the returned user details in local state / `localStorage` (`practide_user`) and redirects the user to the dashboard (`/` or list tab).
+### Step 2: Add Callback Route (`src/app/api/auth/callback/route.ts` or page)
+- Handles the redirect back from RunAuth containing `code` and `state`.
+- Validates the `state` against stored session value to prevent CSRF.
+- Sends a backend request to RunAuth `/oauth/token` to exchange `code` + `client_secret` for JWT tokens.
+- Retrieves user profile from `/oauth/userinfo`.
+- Sets local session cookie/token and redirects user to PractiDE dashboard.
 
-### Step 3: Update the Backend (worker.js)
-Modify the API gateway [worker.js](file:///C:/Users/Runterya/Desktop/practde/worker.js):
-- Add a new endpoint: `/v1/api/auth-callback` (POST).
-- This endpoint exchanges the `code` for an access token by making a backend request to RunAuth's token endpoint:
-  ```http
-  POST https://<runauth-domain>/oauth/token
-  Content-Type: application/json
-
-  {
-    "grant_type": "authorization_code",
-    "code": "<auth_code>",
-    "client_id": "practide",
-    "client_secret": "<PRACTIDE_CLIENT_SECRET>",
-    "redirect_uri": "https://<practide-domain>/callback"
-  }
-  ```
-- Fetches user info from RunAuth's `/oauth/userinfo` using the received access token.
-- Verifies the user in the Oracle database. If the user doesn't exist, automatically registers them.
-- Establishes the session and returns the user payload (ID, Username) back to the frontend callback page.
-- Deprecates the old local `/v1/api/login` and `/v1/api/register` endpoints, or keeps them as backup options.
+### Step 3: API Proxy & Session Verification ([worker.js](file:///C:/Users/Runterya/Desktop/practde/worker.js))
+- PractiDE's Cloudflare Worker validates incoming RunAuth JWTs or session tokens on each API request.
+- Integrates user data seamlessly with PractiDE's word history and learning progress in Oracle DB.
