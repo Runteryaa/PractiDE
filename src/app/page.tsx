@@ -503,10 +503,10 @@ export default function App() {
     const state = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
     sessionStorage.setItem('runauth_state', state);
     const redirectUri = encodeURIComponent(window.location.origin);
-    // Redirect to RunAuth Website login portal (localhost:3000/login in local dev, runauth.pages.dev/login in prod)
+    // Redirect to RunAuth Website login portal (localhost:3000/login in local dev, runauth.runte.workers.dev/login in prod)
     const runauthWebUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
       ? 'http://localhost:3000/login'
-      : 'https://runauth.pages.dev/login';
+      : 'https://runauth.runte.workers.dev/login';
     const authUrl = `${runauthWebUrl}?client_id=practide-app-client&redirect_uri=${redirectUri}&state=${state}`;
     window.location.href = authUrl;
   };
