@@ -438,14 +438,52 @@ export default function App() {
         const params = new URLSearchParams(window.location.search);
         const code = params.get('code');
         if (code) {
-          // Logged in via RunAuth SSO
-          const runauthUser = {
-            id: 'usr_runauth_main',
-            username: 'RunAuth Kullanıcısı'
-          };
-          setUser(runauthUser);
-          localStorage.setItem('practide_user', JSON.stringify(runauthUser));
-          window.history.replaceState({}, document.title, window.location.pathname);
+          // Verify state if present
+          const savedState = sessionStorage.getItem('runauth_state');
+          const returnedState = params.get('state');
+          if (savedState && returnedState && savedState !== returnedState) {
+            console.error("RunAuth State mismatch!");
+            return;
+          }
+
+          // Exchange code for user token & info via runauth-worker
+          fetch('https://runauth-worker.runte.workers.dev/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              code,
+              client_id: 'practide-app-client',
+              client_secret: 'secret_practide_123'
+            })
+          })
+            .then(res => res.json())
+            .then(tokenData => {
+              if (tokenData.access_token) {
+                return fetch('https://runauth-worker.runte.workers.dev/oauth/userinfo', {
+                  headers: { 'Authorization': `Bearer ${tokenData.access_token}` }
+                })
+                  .then(r => r.json())
+                  .then(userInfo => {
+                    if (userInfo && userInfo.sub) {
+                      const runauthUser = {
+                        id: userInfo.sub,
+                        username: userInfo.name || userInfo.email || 'RunAuth Kullanıcısı',
+                        email: userInfo.email,
+                        avatar: userInfo.avatar
+                      };
+                      setUser(runauthUser);
+                      localStorage.setItem('practide_user', JSON.stringify(runauthUser));
+                      localStorage.setItem('practide_token', tokenData.access_token);
+                      window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                  });
+              } else {
+                console.error("Token exchange failed:", tokenData);
+              }
+            })
+            .catch(err => {
+              console.error("OAuth token/userinfo fetch error:", err);
+            });
           return;
         }
       }
@@ -465,10 +503,10 @@ export default function App() {
     const state = Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
     sessionStorage.setItem('runauth_state', state);
     const redirectUri = encodeURIComponent(window.location.origin);
-    // Redirect to RunAuth Website login portal (localhost:3000/login in local dev, runauth.com/login in prod)
+    // Redirect to RunAuth Website login portal (localhost:3000/login in local dev, runauth.pages.dev/login in prod)
     const runauthWebUrl = typeof window !== 'undefined' && window.location.hostname === 'localhost'
       ? 'http://localhost:3000/login'
-      : 'https://runauth.com/login';
+      : 'https://runauth.pages.dev/login';
     const authUrl = `${runauthWebUrl}?client_id=practide-app-client&redirect_uri=${redirectUri}&state=${state}`;
     window.location.href = authUrl;
   };
