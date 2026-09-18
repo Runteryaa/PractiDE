@@ -3,7 +3,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useState, useEffect } from 'react';
-import { Plus, List as ListIcon, Play, Trash2, Check, RotateCcw, Wand2, Gamepad2, Trophy, Timer, Pencil, BookOpen, CheckCircle, XCircle, Volume2, HelpCircle, Keyboard, BookMarked } from 'lucide-react';
+import { Plus, List as ListIcon, Play, Trash2, Check, RotateCcw, Wand2, Gamepad2, Trophy, Timer, Pencil, BookOpen, CheckCircle, XCircle, Volume2, HelpCircle, Keyboard, BookMarked, Sparkles, Flame } from 'lucide-react';
+import { irregularVerbs, IrregularVerb } from '../data/irregularVerbs';
 
 const articleColors: Record<string, string> = {
   der: 'bg-blue-500 text-white',
@@ -46,7 +47,7 @@ export default function App() {
   const [isFlipped, setIsFlipped] = useState(false);
 
   // Games states
-  const [activeGame, setActiveGame] = useState<'menu' | 'flashcards' | 'quiz' | 'match' | 'typing' | 'article' | 'listening' | 'tf' | 'sentence-meaning' | 'sentence-fill'>('menu');
+  const [activeGame, setActiveGame] = useState<'menu' | 'flashcards' | 'quiz' | 'match' | 'typing' | 'article' | 'listening' | 'tf' | 'sentence-meaning' | 'sentence-fill' | 'verb-forms' | 'verb-aux'>('menu');
 
   // Quiz states
   const [quizQuestions, setQuizQuestions] = useState<Record<string, any>[]>([]);
@@ -109,6 +110,29 @@ export default function App() {
   const [sentenceFillStatus, setSentenceFillStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [sentenceFillScore, setSentenceFillScore] = useState(0);
   const [sentenceFillFinished, setSentenceFillFinished] = useState(false);
+
+  // Verbs list states
+  const [verbSearchQuery, setVerbSearchQuery] = useState('');
+  const [verbLevelFilter, setVerbLevelFilter] = useState<'all' | 'A1' | 'A2' | 'B1'>('all');
+  const [verbAuxFilter, setVerbAuxFilter] = useState<'all' | 'haben' | 'sein'>('all');
+
+  // Verb Forms Game states
+  const [verbFormQuestions, setVerbFormQuestions] = useState<IrregularVerb[]>([]);
+  const [currentVerbFormIndex, setCurrentVerbFormIndex] = useState(0);
+  const [verbFormPreteriteInput, setVerbFormPreteriteInput] = useState('');
+  const [verbFormParticipleInput, setVerbFormParticipleInput] = useState('');
+  const [verbFormAuxChoice, setVerbFormAuxChoice] = useState<'haben' | 'sein' | ''>('');
+  const [verbFormStatus, setVerbFormStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
+  const [verbFormScore, setVerbFormScore] = useState(0);
+  const [verbFormFinished, setVerbFormFinished] = useState(false);
+
+  // Verb Auxiliary (haben/sein) Game states
+  const [verbAuxQuestions, setVerbAuxQuestions] = useState<IrregularVerb[]>([]);
+  const [currentVerbAuxIndex, setCurrentVerbAuxIndex] = useState(0);
+  const [verbAuxStatus, setVerbAuxStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
+  const [verbAuxSelected, setVerbAuxSelected] = useState<'haben' | 'sein' | null>(null);
+  const [verbAuxScore, setVerbAuxScore] = useState(0);
+  const [verbAuxFinished, setVerbAuxFinished] = useState(false);
 
   // Practice settings
   const [practiceLearnedOnly, setPracticeLearnedOnly] = useState(false);
@@ -946,6 +970,89 @@ export default function App() {
     }, 1500);
   };
 
+  // --- Irregular Verb Games ---
+  const startVerbForms = () => {
+    const shuffled = [...irregularVerbs].sort(() => 0.5 - Math.random()).slice(0, 10);
+    setVerbFormQuestions(shuffled);
+    setCurrentVerbFormIndex(0);
+    setVerbFormPreteriteInput('');
+    setVerbFormParticipleInput('');
+    setVerbFormAuxChoice('');
+    setVerbFormStatus('idle');
+    setVerbFormScore(0);
+    setVerbFormFinished(false);
+    setActiveGame('verb-forms');
+  };
+
+  const handleVerbFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (verbFormStatus !== 'idle') return;
+
+    const q = verbFormQuestions[currentVerbFormIndex];
+    const normalize = (s: string) => s.trim().toLowerCase().replace(/[.,!?;:]/g, '');
+
+    const isPreteriteCorrect = normalize(verbFormPreteriteInput) === normalize(q.preterite);
+    const isParticipleCorrect = normalize(verbFormParticipleInput) === normalize(q.participle2);
+    const isAuxCorrect = !verbFormAuxChoice || verbFormAuxChoice === q.auxiliary;
+
+    const isAllCorrect = isPreteriteCorrect && isParticipleCorrect && isAuxCorrect;
+
+    if (isAllCorrect) {
+      setVerbFormStatus('correct');
+      setVerbFormScore(prev => prev + 1);
+    } else {
+      setVerbFormStatus('incorrect');
+    }
+
+    setTimeout(() => {
+      if (currentVerbFormIndex + 1 < verbFormQuestions.length) {
+        setCurrentVerbFormIndex(prev => prev + 1);
+        setVerbFormPreteriteInput('');
+        setVerbFormParticipleInput('');
+        setVerbFormAuxChoice('');
+        setVerbFormStatus('idle');
+      } else {
+        setVerbFormFinished(true);
+      }
+    }, 2000);
+  };
+
+  const startVerbAux = () => {
+    const shuffled = [...irregularVerbs].sort(() => 0.5 - Math.random()).slice(0, 15);
+    setVerbAuxQuestions(shuffled);
+    setCurrentVerbAuxIndex(0);
+    setVerbAuxStatus('idle');
+    setVerbAuxSelected(null);
+    setVerbAuxScore(0);
+    setVerbAuxFinished(false);
+    setActiveGame('verb-aux');
+  };
+
+  const handleVerbAuxAnswer = (choice: 'haben' | 'sein') => {
+    if (verbAuxStatus !== 'idle') return;
+
+    setVerbAuxSelected(choice);
+    const q = verbAuxQuestions[currentVerbAuxIndex];
+    const isCorrect = choice === q.auxiliary;
+
+    if (isCorrect) {
+      setVerbAuxStatus('correct');
+      setVerbAuxScore(prev => prev + 1);
+    } else {
+      setVerbAuxStatus('incorrect');
+    }
+
+    setTimeout(() => {
+      if (currentVerbAuxIndex + 1 < verbAuxQuestions.length) {
+        setCurrentVerbAuxIndex(prev => prev + 1);
+        setVerbAuxStatus('idle');
+        setVerbAuxSelected(null);
+      } else {
+        setVerbAuxFinished(true);
+      }
+    }, 1300);
+  };
+
   const generateId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
       return crypto.randomUUID().replace(/-/g, '').substring(0, 32);
@@ -1053,6 +1160,14 @@ export default function App() {
               }`}
             >
               <BookMarked size={18} className="hidden sm:block" /> Cümleler
+            </button>
+            <button
+              onClick={() => setActiveTab('verbs')}
+              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                activeTab === 'verbs' ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-300 hover:bg-[#1C2545]'
+              }`}
+            >
+              <Sparkles size={18} className="hidden sm:block text-amber-400" /> Fiiller
             </button>
           </nav>
         </div>
@@ -1392,6 +1507,44 @@ export default function App() {
                     </div>
                   </div>
                 )}
+
+                {/* Irregular Verbs Games Section */}
+                <div className="mt-8">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="h-px flex-1 bg-[#1F294F]"></div>
+                    <span className="text-sm font-medium text-gray-400 flex items-center gap-2">
+                      <Sparkles size={16} className="text-amber-400" /> Düzensiz Fiil Aktiviteleri
+                    </span>
+                    <div className="h-px flex-1 bg-[#1F294F]"></div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <button
+                      onClick={startVerbForms}
+                      className="bg-[#131B39] border border-[#1F294F] p-6 rounded-2xl shadow-xl hover:shadow-amber-500/20 hover:border-amber-500/50 transition-all group flex flex-col items-center text-center"
+                    >
+                      <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <Flame className="text-amber-400" size={32} />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">3'lü Form Antrenmanı</h3>
+                      <p className="text-gray-400 text-sm">
+                        Mastar hali verilen fiilin Präteritum ve Partizip II çekimlerini yazın.
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={startVerbAux}
+                      className="bg-[#131B39] border border-[#1F294F] p-6 rounded-2xl shadow-xl hover:shadow-cyan-500/20 hover:border-cyan-500/50 transition-all group flex flex-col items-center text-center"
+                    >
+                      <div className="w-16 h-16 bg-cyan-500/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <Sparkles className="text-cyan-400" size={32} />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-2">Haben mı Sein mi?</h3>
+                      <p className="text-gray-400 text-sm">
+                        Fiilin Perfekt zamanında "haben" mı yoksa "sein" mı aldığını test edin.
+                      </p>
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : activeGame === 'flashcards' ? (
               <div className="w-full max-w-2xl mt-4 px-4">
@@ -2037,6 +2190,224 @@ export default function App() {
                   </div>
                 )}
               </div>
+            ) : activeGame === 'verb-forms' ? (
+              <div className="w-full max-w-2xl mt-4 px-4">
+                <div className="flex justify-between items-center mb-6 text-gray-400">
+                  <button onClick={() => setActiveGame('menu')} className="hover:text-white transition-colors">← Geri</button>
+                  <span>Soru {currentVerbFormIndex + 1} / {verbFormQuestions.length}</span>
+                  <span className="font-bold text-amber-400">Skor: {verbFormScore}</span>
+                </div>
+
+                {verbFormFinished ? (
+                  <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-10 text-center shadow-xl">
+                    <div className="w-24 h-24 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Flame className="text-amber-400" size={48} />
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-4">3'lü Form Antrenmanı Bitti!</h2>
+                    <p className="text-xl text-gray-300 mb-8">Skorunuz: {verbFormScore} / {verbFormQuestions.length}</p>
+                    <div className="flex justify-center gap-4">
+                      <button onClick={() => setActiveGame('menu')} className="px-6 py-3 bg-[#1C2545] text-white rounded-xl hover:bg-[#293561] transition-colors">Menüye Dön</button>
+                      <button onClick={startVerbForms} className="px-6 py-3 bg-amber-600 text-white rounded-xl hover:bg-amber-700 transition-colors flex items-center gap-2"><RotateCcw size={20}/> Tekrar Oyna</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-6 sm:p-8 shadow-xl text-center">
+                    <p className="text-gray-400 text-sm mb-2">Bu fiilin Präteritum ve Partizip II formlarını yazın:</p>
+                    <div className="flex items-center justify-center gap-3 mb-2">
+                      <h2 className="text-3xl sm:text-4xl font-bold text-white break-words">
+                        {verbFormQuestions[currentVerbFormIndex]?.infinitive}
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => playAudio(`${verbFormQuestions[currentVerbFormIndex]?.infinitive}, ${verbFormQuestions[currentVerbFormIndex]?.preterite}, ${verbFormQuestions[currentVerbFormIndex]?.auxiliary === 'sein' ? 'ist' : 'hat'} ${verbFormQuestions[currentVerbFormIndex]?.participle2}`)}
+                        className="p-2 bg-[#1C2545] rounded-full text-gray-400 hover:text-white transition-colors"
+                        title="Sesli Dinle"
+                      >
+                        <Volume2 size={20} />
+                      </button>
+                    </div>
+                    <p className="text-lg text-blue-400 mb-4 font-medium">
+                      {verbFormQuestions[currentVerbFormIndex]?.meaning_tr}
+                    </p>
+                    {verbFormQuestions[currentVerbFormIndex]?.present3sg && (
+                      <p className="text-xs text-gray-400 mb-6 italic">
+                        Şimdiki zaman 3. tekil: <strong className="text-gray-200">er/sie/es {verbFormQuestions[currentVerbFormIndex]?.present3sg}</strong>
+                      </p>
+                    )}
+
+                    <form onSubmit={handleVerbFormSubmit} className="max-w-md mx-auto space-y-4">
+                      <div>
+                        <label className="block text-left text-xs font-semibold text-gray-300 mb-1">
+                          1. Präteritum (Geçmiş Zaman)
+                        </label>
+                        <input
+                          type="text"
+                          value={verbFormPreteriteInput}
+                          onChange={(e) => setVerbFormPreteriteInput(e.target.value)}
+                          disabled={verbFormStatus !== 'idle'}
+                          autoFocus
+                          className={`w-full px-5 py-3.5 bg-[#0A0F2C] border-2 rounded-xl text-lg text-center focus:outline-none transition-colors text-white ${
+                            verbFormStatus === 'idle' ? 'border-[#1F294F] focus:border-amber-500' :
+                            verbFormStatus === 'correct' ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'
+                          }`}
+                          placeholder="örn: ging, sprach, fuhr"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-left text-xs font-semibold text-gray-300 mb-1">
+                          2. Partizip II (+ Yardımcı Fiil)
+                        </label>
+                        <div className="flex gap-2">
+                          <div className="flex bg-[#0A0F2C] border border-[#1F294F] rounded-xl p-1 shrink-0">
+                            <button
+                              type="button"
+                              disabled={verbFormStatus !== 'idle'}
+                              onClick={() => setVerbFormAuxChoice(verbFormAuxChoice === 'haben' ? '' : 'haben')}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                                verbFormAuxChoice === 'haben' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'
+                              }`}
+                            >
+                              hat
+                            </button>
+                            <button
+                              type="button"
+                              disabled={verbFormStatus !== 'idle'}
+                              onClick={() => setVerbFormAuxChoice(verbFormAuxChoice === 'sein' ? '' : 'sein')}
+                              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                                verbFormAuxChoice === 'sein' ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-white'
+                              }`}
+                            >
+                              ist
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={verbFormParticipleInput}
+                            onChange={(e) => setVerbFormParticipleInput(e.target.value)}
+                            disabled={verbFormStatus !== 'idle'}
+                            className={`flex-1 px-5 py-3.5 bg-[#0A0F2C] border-2 rounded-xl text-lg text-center focus:outline-none transition-colors text-white ${
+                              verbFormStatus === 'idle' ? 'border-[#1F294F] focus:border-amber-500' :
+                              verbFormStatus === 'correct' ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'
+                            }`}
+                            placeholder="örn: gegangen, gesprochen"
+                          />
+                        </div>
+                      </div>
+
+                      {verbFormStatus === 'correct' && (
+                        <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 font-semibold flex items-center justify-center gap-2">
+                          <CheckCircle size={20} /> Harika! Doğru formlar.
+                        </div>
+                      )}
+
+                      {verbFormStatus === 'incorrect' && (
+                        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-left">
+                          <p className="text-xs text-red-400 font-semibold mb-1">Doğru Formlar:</p>
+                          <p className="text-white font-bold text-base">
+                            Präteritum: <span className="text-amber-300">{verbFormQuestions[currentVerbFormIndex]?.preterite}</span>
+                          </p>
+                          <p className="text-white font-bold text-base mt-0.5">
+                            Perfekt: <span className="text-emerald-400">{verbFormQuestions[currentVerbFormIndex]?.auxiliary === 'sein' ? 'ist' : 'hat'}</span> <span className="text-amber-300">{verbFormQuestions[currentVerbFormIndex]?.participle2}</span>
+                          </p>
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={(!verbFormPreteriteInput.trim() && !verbFormParticipleInput.trim()) || verbFormStatus !== 'idle'}
+                        className="w-full mt-2 py-4 bg-amber-600 text-white rounded-xl font-bold text-lg hover:bg-amber-700 disabled:opacity-50 transition-colors active:scale-[0.98]"
+                      >
+                        {verbFormStatus !== 'idle' ? 'Geçiliyor...' : 'Kontrol Et'}
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            ) : activeGame === 'verb-aux' ? (
+              <div className="w-full max-w-2xl mt-4 px-4">
+                <div className="flex justify-between items-center mb-6 text-gray-400">
+                  <button onClick={() => setActiveGame('menu')} className="hover:text-white transition-colors">← Geri</button>
+                  <span>Soru {currentVerbAuxIndex + 1} / {verbAuxQuestions.length}</span>
+                  <span className="font-bold text-cyan-400">Skor: {verbAuxScore}</span>
+                </div>
+
+                {verbAuxFinished ? (
+                  <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-10 text-center shadow-xl">
+                    <div className="w-24 h-24 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Trophy className="text-cyan-400" size={48} />
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-4">Haben mı Sein mi? Bitti!</h2>
+                    <p className="text-xl text-gray-300 mb-8">Skorunuz: {verbAuxScore} / {verbAuxQuestions.length}</p>
+                    <div className="flex justify-center gap-4">
+                      <button onClick={() => setActiveGame('menu')} className="px-6 py-3 bg-[#1C2545] text-white rounded-xl hover:bg-[#293561] transition-colors">Menüye Dön</button>
+                      <button onClick={startVerbAux} className="px-6 py-3 bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 transition-colors flex items-center gap-2"><RotateCcw size={20}/> Tekrar Oyna</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-6 sm:p-8 shadow-xl text-center">
+                    <p className="text-gray-400 text-sm mb-3">Bu fiil Perfekt zamanında hangi yardımcı fiili alır?</p>
+                    <div className="mb-2">
+                      <h2 className="text-4xl font-extrabold text-white break-words">
+                        {verbAuxQuestions[currentVerbAuxIndex]?.infinitive}
+                      </h2>
+                    </div>
+                    <p className="text-xl text-amber-300 font-semibold mb-2">
+                      Partizip II: {verbAuxQuestions[currentVerbAuxIndex]?.participle2}
+                    </p>
+                    <p className="text-base text-gray-400 mb-8 font-medium">
+                      ({verbAuxQuestions[currentVerbAuxIndex]?.meaning_tr})
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+                      <button
+                        type="button"
+                        disabled={verbAuxStatus !== 'idle'}
+                        onClick={() => handleVerbAuxAnswer('haben')}
+                        className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${
+                          verbAuxSelected === 'haben'
+                            ? (verbAuxStatus === 'correct' ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-red-500/20 border-red-500 text-red-400')
+                            : (verbAuxStatus !== 'idle' && verbAuxQuestions[currentVerbAuxIndex]?.auxiliary === 'haben')
+                              ? 'bg-green-500/20 border-green-500 text-green-400'
+                              : 'bg-[#0A0F2C] border-[#1F294F] hover:border-blue-500 text-white hover:bg-blue-500/10'
+                        }`}
+                      >
+                        <span className="text-2xl font-black tracking-wide">HABEN</span>
+                        <span className="text-xs text-gray-400">hat {verbAuxQuestions[currentVerbAuxIndex]?.participle2}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={verbAuxStatus !== 'idle'}
+                        onClick={() => handleVerbAuxAnswer('sein')}
+                        className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-2 ${
+                          verbAuxSelected === 'sein'
+                            ? (verbAuxStatus === 'correct' ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-red-500/20 border-red-500 text-red-400')
+                            : (verbAuxStatus !== 'idle' && verbAuxQuestions[currentVerbAuxIndex]?.auxiliary === 'sein')
+                              ? 'bg-green-500/20 border-green-500 text-green-400'
+                              : 'bg-[#0A0F2C] border-[#1F294F] hover:border-emerald-500 text-white hover:bg-emerald-500/10'
+                        }`}
+                      >
+                        <span className="text-2xl font-black tracking-wide">SEIN</span>
+                        <span className="text-xs text-gray-400">ist {verbAuxQuestions[currentVerbAuxIndex]?.participle2}</span>
+                      </button>
+                    </div>
+
+                    {verbAuxStatus === 'incorrect' && (
+                      <div className="mt-6 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-left max-w-md mx-auto text-sm">
+                        <p className="text-amber-300 font-bold mb-1">
+                          Doğru: {verbAuxQuestions[currentVerbAuxIndex]?.auxiliary === 'sein' ? 'ist' : 'hat'} {verbAuxQuestions[currentVerbAuxIndex]?.participle2}
+                        </p>
+                        <p className="text-gray-300 text-xs">
+                          {verbAuxQuestions[currentVerbAuxIndex]?.auxiliary === 'sein'
+                            ? '💡 Kural: Hareket, yer veya durum değişikliği bildiren fiiller (ve sein, werden, bleiben) "sein" ile kullanılır.'
+                            : '💡 Kural: Nesne alabilen ve durum/hareket değişikliği bildirmeyen fiiller "haben" ile kullanılır.'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             ) : null}
 
           </div>
@@ -2165,6 +2536,184 @@ export default function App() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* IRREGULAR VERBS TAB */}
+        {activeTab === 'verbs' && (
+          <div className="flex-1 flex flex-col gap-6">
+            {/* Header / Info Banner */}
+            <div className="bg-[#131B39] rounded-2xl p-6 border border-[#1F294F] shadow-xl">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <Sparkles className="text-amber-400" /> Düzensiz Fiiller (Starke Verben)
+                  </h2>
+                  <p className="text-sm text-gray-400 mt-1">
+                    A1, A2 ve B1 seviyelerinde en sık kullanılan 91 temel düzensiz fiilin 3 zaman formu ve yardımcı fiilleri.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2 shrink-0">
+                  <button
+                    onClick={() => { setActiveTab('practice'); startVerbForms(); }}
+                    className="px-4 py-2 bg-amber-600/20 text-amber-300 border border-amber-500/40 rounded-xl text-sm font-semibold hover:bg-amber-600/30 transition-colors flex items-center gap-1.5"
+                  >
+                    <Flame size={16} /> 3'lü Form Çalış
+                  </button>
+                  <button
+                    onClick={() => { setActiveTab('practice'); startVerbAux(); }}
+                    className="px-4 py-2 bg-cyan-600/20 text-cyan-300 border border-cyan-500/40 rounded-xl text-sm font-semibold hover:bg-cyan-600/30 transition-colors flex items-center gap-1.5"
+                  >
+                    <Sparkles size={16} /> Haben / Sein Testi
+                  </button>
+                </div>
+              </div>
+
+              {/* Search and Filters */}
+              <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={verbSearchQuery}
+                    onChange={(e) => setVerbSearchQuery(e.target.value)}
+                    placeholder="Fiil veya Türkçe anlam ara (örn: gehen, gitmek, ging, war)..."
+                    className="w-full px-4 py-3 bg-[#0A0F2C] border border-[#1F294F] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#4255FF] text-sm"
+                  />
+                  {verbSearchQuery && (
+                    <button
+                      onClick={() => setVerbSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white text-sm"
+                    >
+                      Temizle
+                    </button>
+                  )}
+                </div>
+
+                {/* Level Filter */}
+                <div className="flex bg-[#0A0F2C] border border-[#1F294F] rounded-xl p-1 shrink-0">
+                  {(['all', 'A1', 'A2', 'B1'] as const).map(lvl => (
+                    <button
+                      key={lvl}
+                      onClick={() => setVerbLevelFilter(lvl)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        verbLevelFilter === lvl
+                          ? 'bg-[#4255FF] text-white shadow'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {lvl === 'all' ? 'Tümü' : lvl}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Aux Filter */}
+                <div className="flex bg-[#0A0F2C] border border-[#1F294F] rounded-xl p-1 shrink-0">
+                  {(['all', 'haben', 'sein'] as const).map(aux => (
+                    <button
+                      key={aux}
+                      onClick={() => setVerbAuxFilter(aux)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        verbAuxFilter === aux
+                          ? (aux === 'sein' ? 'bg-emerald-600 text-white' : aux === 'haben' ? 'bg-blue-600 text-white' : 'bg-[#1C2545] text-white')
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {aux === 'all' ? 'H/S' : aux}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Verb Cards List */}
+            {(() => {
+              const filtered = irregularVerbs.filter(v => {
+                const q = verbSearchQuery.trim().toLowerCase();
+                const matchesSearch = !q ||
+                  v.infinitive.toLowerCase().includes(q) ||
+                  v.preterite.toLowerCase().includes(q) ||
+                  v.participle2.toLowerCase().includes(q) ||
+                  v.present3sg.toLowerCase().includes(q) ||
+                  v.meaning_tr.toLowerCase().includes(q);
+
+                const matchesLevel = verbLevelFilter === 'all' || v.level === verbLevelFilter;
+                const matchesAux = verbAuxFilter === 'all' || v.auxiliary === verbAuxFilter;
+
+                return matchesSearch && matchesLevel && matchesAux;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center p-12 bg-[#131B39] border border-[#1F294F] rounded-2xl">
+                    <p className="text-gray-400">Aramanıza uygun düzensiz fiil bulunamadı.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-xs text-gray-400 px-1">
+                    <span>Toplam {filtered.length} fiil listeleniyor</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {filtered.map(v => (
+                      <div
+                        key={v.id}
+                        className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-4 shadow-lg hover:border-[#4255FF]/50 transition-all group"
+                      >
+                        <div className="flex justify-between items-start gap-2 mb-2">
+                          <div className="flex items-baseline gap-2">
+                            <h3 className="text-xl font-bold text-white">{v.infinitive}</h3>
+                            <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-[#1C2545] text-gray-300 border border-[#293561]">
+                              {v.level}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                              v.auxiliary === 'sein'
+                                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+                                : 'bg-blue-500/10 border-blue-500/40 text-blue-300'
+                            }`}>
+                              {v.auxiliary}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => playAudio(`${v.infinitive}, ${v.preterite}, ${v.auxiliary === 'sein' ? 'ist' : 'hat'} ${v.participle2}`)}
+                              className="p-1.5 text-gray-400 hover:text-white rounded-lg hover:bg-[#1C2545] transition-colors"
+                              title="Sesli Dinle"
+                            >
+                              <Volume2 size={16} />
+                            </button>
+                          </div>
+                        </div>
+
+                        <p className="text-sm text-gray-300 mb-3 font-medium">
+                          {v.meaning_tr}
+                        </p>
+
+                        <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[#1F294F]/60 text-xs">
+                          <div className="bg-[#0A0F2C]/60 rounded-xl p-2 text-center">
+                            <span className="block text-gray-500 text-[10px] uppercase font-bold mb-0.5">Präsens (3.P)</span>
+                            <span className="font-semibold text-gray-200 break-words">{v.present3sg}</span>
+                          </div>
+                          <div className="bg-[#0A0F2C]/60 rounded-xl p-2 text-center">
+                            <span className="block text-amber-400/80 text-[10px] uppercase font-bold mb-0.5">Präteritum</span>
+                            <span className="font-semibold text-amber-300 break-words">{v.preterite}</span>
+                          </div>
+                          <div className="bg-[#0A0F2C]/60 rounded-xl p-2 text-center">
+                            <span className="block text-emerald-400/80 text-[10px] uppercase font-bold mb-0.5">Partizip II</span>
+                            <span className="font-semibold text-emerald-300 break-words">
+                              {v.auxiliary === 'sein' ? 'ist' : 'hat'} {v.participle2}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </main>
