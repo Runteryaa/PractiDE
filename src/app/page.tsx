@@ -32,6 +32,8 @@ export default function App() {
   const [sentenceMeaningEN, setSentenceMeaningEN] = useState('');
   const [sentenceNote, setSentenceNote] = useState('');
   const [editingSentenceId, setEditingSentenceId] = useState<string | null>(null);
+  const [sentenceLastEdited, setSentenceLastEdited] = useState<string | null>(null);
+  const [sentenceLoading, setSentenceLoading] = useState(false);
 
 
   // Form states
@@ -1060,6 +1062,85 @@ export default function App() {
     return Date.now().toString(36) + Math.random().toString(36).substring(2);
   };
 
+  const handleSentenceAutoFill = async () => {
+    const sourceText = sentenceText.trim() || sentenceMeaning.trim() || sentenceMeaningEN.trim();
+    if (!sourceText) return;
+
+    setSentenceLoading(true);
+
+    let sourceLang = 'de';
+    let activeQuery = '';
+
+    if (sentenceLastEdited === 'de' && sentenceText.trim()) {
+      sourceLang = 'de';
+      activeQuery = sentenceText.trim();
+    } else if (sentenceLastEdited === 'tr' && sentenceMeaning.trim()) {
+      sourceLang = 'tr';
+      activeQuery = sentenceMeaning.trim();
+    } else if (sentenceLastEdited === 'en' && sentenceMeaningEN.trim()) {
+      sourceLang = 'en';
+      activeQuery = sentenceMeaningEN.trim();
+    } else {
+      if (sentenceText.trim()) {
+        sourceLang = 'de';
+        activeQuery = sentenceText.trim();
+      } else if (sentenceMeaning.trim()) {
+        sourceLang = 'tr';
+        activeQuery = sentenceMeaning.trim();
+      } else if (sentenceMeaningEN.trim()) {
+        sourceLang = 'en';
+        activeQuery = sentenceMeaningEN.trim();
+      }
+    }
+
+    try {
+      const fetchTranslation = async (text: string, sl: string, tl: string) => {
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${sl}&tl=${tl}&dt=t&q=${encodeURIComponent(text)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data && data[0]) {
+          return data[0].map((item: any) => item[0]).join('');
+        }
+        return '';
+      };
+
+      let resultDe = sentenceText.trim();
+      let resultTr = sentenceMeaning.trim();
+      let resultEn = sentenceMeaningEN.trim();
+
+      if (sourceLang === 'de') {
+        const [trText, enText] = await Promise.all([
+          fetchTranslation(activeQuery, 'de', 'tr'),
+          fetchTranslation(activeQuery, 'de', 'en')
+        ]);
+        resultTr = trText;
+        resultEn = enText;
+      } else if (sourceLang === 'tr') {
+        const [deText, enText] = await Promise.all([
+          fetchTranslation(activeQuery, 'tr', 'de'),
+          fetchTranslation(activeQuery, 'tr', 'en')
+        ]);
+        resultDe = deText;
+        resultEn = enText;
+      } else if (sourceLang === 'en') {
+        const [deText, trText] = await Promise.all([
+          fetchTranslation(activeQuery, 'en', 'de'),
+          fetchTranslation(activeQuery, 'en', 'tr')
+        ]);
+        resultDe = deText;
+        resultTr = trText;
+      }
+
+      setSentenceText(resultDe);
+      setSentenceMeaning(resultTr);
+      setSentenceMeaningEN(resultEn);
+    } catch (error) {
+      console.error("Cümle otomatik çeviri hatası:", error);
+    } finally {
+      setSentenceLoading(false);
+    }
+  };
+
   const addSentence = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sentenceText.trim()) return;
@@ -1094,6 +1175,7 @@ export default function App() {
     setSentenceMeaning('');
     setSentenceMeaningEN('');
     setSentenceNote('');
+    setSentenceLastEdited(null);
   };
 
   const deleteSentence = (id: string) => {
@@ -1110,6 +1192,7 @@ export default function App() {
     setSentenceMeaning(s.meaning || '');
     setSentenceMeaningEN(s.meaning_en || '');
     setSentenceNote(s.note || '');
+    setSentenceLastEdited(null);
   };
 
   const cancelEditSentence = () => {
@@ -1118,6 +1201,7 @@ export default function App() {
     setSentenceMeaning('');
     setSentenceMeaningEN('');
     setSentenceNote('');
+    setSentenceLastEdited(null);
   };
 
   return (
@@ -2445,7 +2529,10 @@ export default function App() {
                   <label className="block text-sm font-medium text-gray-200 mb-1">Cümle <span className="text-red-400">*</span></label>
                   <textarea
                     value={sentenceText}
-                    onChange={(e) => setSentenceText(e.target.value)}
+                    onChange={(e) => {
+                      setSentenceText(e.target.value);
+                      setSentenceLastEdited('de');
+                    }}
                     placeholder="örn: Ich lerne jeden Tag Deutsch."
                     rows={2}
                     className="w-full px-4 py-3 bg-[#0A0F2C] border border-[#1F294F] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4255FF] transition-all text-white resize-none"
@@ -2456,7 +2543,10 @@ export default function App() {
                   <input
                     type="text"
                     value={sentenceMeaning}
-                    onChange={(e) => setSentenceMeaning(e.target.value)}
+                    onChange={(e) => {
+                      setSentenceMeaning(e.target.value);
+                      setSentenceLastEdited('tr');
+                    }}
                     placeholder="örn: Her gün Almanca öğreniyorum."
                     className="w-full px-4 py-3 bg-[#0A0F2C] border border-[#1F294F] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4255FF] transition-all text-white"
                   />
@@ -2466,7 +2556,10 @@ export default function App() {
                   <input
                     type="text"
                     value={sentenceMeaningEN}
-                    onChange={(e) => setSentenceMeaningEN(e.target.value)}
+                    onChange={(e) => {
+                      setSentenceMeaningEN(e.target.value);
+                      setSentenceLastEdited('en');
+                    }}
                     placeholder="örn: I learn German every day."
                     className="w-full px-4 py-3 bg-[#0A0F2C] border border-[#1F294F] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4255FF] transition-all text-white"
                   />
@@ -2481,23 +2574,37 @@ export default function App() {
                     className="w-full px-4 py-3 bg-[#0A0F2C] border border-[#1F294F] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4255FF] transition-all text-white"
                   />
                 </div>
-                <div className="flex gap-3">
-                  <button
-                    type="submit"
-                    disabled={!sentenceText.trim()}
-                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 transition-all active:scale-[0.98]"
-                  >
-                    {editingSentenceId ? 'Güncelle' : 'Kaydet'}
-                  </button>
-                  {editingSentenceId && (
+                <div className="flex flex-col gap-2 pt-2">
+                  <p className="text-xs text-gray-400 text-center mb-1">
+                    💡 Herhangi bir kutuya cümle yazıp sihirli değneğe basabilirsiniz.
+                  </p>
+                  <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={cancelEditSentence}
-                      className="flex-1 py-3 bg-[#1C2545] text-white rounded-xl font-bold hover:bg-[#293561] transition-all"
+                      onClick={handleSentenceAutoFill}
+                      disabled={sentenceLoading || !(sentenceText.trim() || sentenceMeaning.trim() || sentenceMeaningEN.trim())}
+                      className="flex-none px-6 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl shadow-lg hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 font-medium active:scale-[0.98]"
+                      title="Cümleyi Algıla, Çevir ve Otomatik Doldur"
                     >
-                      İptal
+                      {sentenceLoading ? <RotateCcw className="animate-spin" size={22} /> : <Wand2 size={22} />}
                     </button>
-                  )}
+                    <button
+                      type="submit"
+                      disabled={!sentenceText.trim()}
+                      className="flex-1 py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:bg-gray-600 disabled:opacity-50 transition-all active:scale-[0.98]"
+                    >
+                      {editingSentenceId ? 'Güncelle' : 'Kaydet'}
+                    </button>
+                    {editingSentenceId && (
+                      <button
+                        type="button"
+                        onClick={cancelEditSentence}
+                        className="flex-1 py-3.5 bg-[#1C2545] text-white rounded-xl font-bold hover:bg-[#293561] transition-all"
+                      >
+                        İptal
+                      </button>
+                    )}
+                  </div>
                 </div>
               </form>
             </div>
