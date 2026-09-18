@@ -1123,51 +1123,67 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0A0F2C] flex flex-col font-sans">
       {/* Header & Navigation */}
-      <header className="bg-[#131B39] shadow-2xl shadow-black/50 border-b sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-100 flex items-center gap-2">
-            PractiDE
-          </h1>
-          <nav className="flex flex-wrap justify-center sm:justify-end gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+      <header className="bg-[#131B39]/95 backdrop-blur-md shadow-xl shadow-black/30 border-b border-[#1F294F] sticky top-0 z-30">
+        <div className="max-w-4xl mx-auto px-4 py-2.5 flex flex-col sm:flex-row justify-between items-center gap-3">
+          <div
+            onClick={() => setActiveTab('list')}
+            className="flex items-center gap-2 cursor-pointer select-none"
+          >
+            <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-indigo-300 to-white bg-clip-text text-transparent">
+              PractiDE
+            </h1>
+          </div>
+
+          <nav className="flex items-center gap-1 p-1 bg-[#0A0F2C]/80 border border-[#1F294F] rounded-xl overflow-x-auto max-w-full no-scrollbar">
             <button
               onClick={() => setActiveTab('list')}
-              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                activeTab === 'list' ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-300 hover:bg-[#1C2545]'
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                activeTab === 'list'
+                  ? 'bg-[#4255FF] text-white shadow-md shadow-[#4255FF]/25'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1C2545]'
               }`}
             >
-              <ListIcon size={18} className="hidden sm:block" /> Listem
+              <ListIcon size={16} /> Listem
             </button>
             <button
               onClick={() => setActiveTab('add')}
-              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                activeTab === 'add' ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-300 hover:bg-[#1C2545]'
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                activeTab === 'add'
+                  ? 'bg-[#4255FF] text-white shadow-md shadow-[#4255FF]/25'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1C2545]'
               }`}
             >
-              <Plus size={18} className="hidden sm:block" /> Ekle
+              <Plus size={16} /> Ekle
             </button>
             <button
               onClick={() => { setActiveTab('practice'); setActiveGame('menu'); }}
-              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                activeTab === 'practice' ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-300 hover:bg-[#1C2545]'
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                activeTab === 'practice'
+                  ? 'bg-[#4255FF] text-white shadow-md shadow-[#4255FF]/25'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1C2545]'
               }`}
             >
-              <Play size={18} className="hidden sm:block" /> Çalış
+              <Play size={16} /> Çalış
             </button>
             <button
               onClick={() => setActiveTab('sentences')}
-              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                activeTab === 'sentences' ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-300 hover:bg-[#1C2545]'
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                activeTab === 'sentences'
+                  ? 'bg-[#4255FF] text-white shadow-md shadow-[#4255FF]/25'
+                  : 'text-gray-400 hover:text-white hover:bg-[#1C2545]'
               }`}
             >
-              <BookMarked size={18} className="hidden sm:block" /> Cümleler
+              <BookMarked size={16} /> Cümleler
             </button>
             <button
               onClick={() => setActiveTab('verbs')}
-              className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-colors ${
-                activeTab === 'verbs' ? 'bg-blue-100 text-blue-700 font-medium' : 'text-gray-300 hover:bg-[#1C2545]'
+              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
+                activeTab === 'verbs'
+                  ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
+                  : 'text-gray-400 hover:text-amber-300 hover:bg-[#1C2545]'
               }`}
             >
-              <Sparkles size={18} className="hidden sm:block text-amber-400" /> Fiiller
+              <Sparkles size={16} className={activeTab === 'verbs' ? 'text-white' : 'text-amber-400'} /> Fiiller
             </button>
           </nav>
         </div>
