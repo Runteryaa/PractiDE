@@ -298,35 +298,67 @@ export default function App() {
         }
       }
 
-      if (guessedArticle === 'diğer') {
-        if (resultEn.toLowerCase().startsWith('to ')) {
-          guessedArticle = 'fiil';
-        } else if (resultEn) {
-          const testEnText = resultEn.toLowerCase().startsWith('the ') ? resultEn : `the ${resultEn}`;
-          const articleTest = await fetchTranslation(testEnText, 'en', 'de');
-          const testParts = articleTest.split(' ');
+      const trLower = resultTr.toLowerCase().trim();
+      const enLower = resultEn.toLowerCase().trim();
+      const deLower = resultDe.toLowerCase().trim();
+      const clean = (s: string) => s.trim().toLowerCase().replace(/[.,!?;:]/g, '');
 
-          if (testParts.length > 1) {
-            const possibleArticle = testParts[0].toLowerCase();
-            if (['der', 'die', 'das'].includes(possibleArticle)) {
-              guessedArticle = possibleArticle;
-              resultDe = resultDe.charAt(0).toUpperCase() + resultDe.slice(1);
+      // 1. Fiil kontrolü
+      const isVerb =
+        enLower.startsWith('to ') ||
+        trLower.endsWith('mek') ||
+        trLower.endsWith('mak') ||
+        (sourceLang === 'de' && (deLower.endsWith('en') || deLower.endsWith('eln') || deLower.endsWith('ern')) && !word.trim()[0]?.match(/[A-ZÄÖÜ]/) && (trLower.endsWith('mek') || trLower.endsWith('mak') || enLower.startsWith('to ')));
+
+      if (isVerb) {
+        guessedArticle = 'fiil';
+        resultDe = deLower;
+      } else if (guessedArticle === 'diğer' && resultEn) {
+        // 2. İsim ve Artikel tespiti
+        const testEnText = enLower.startsWith('the ') ? resultEn : `the ${resultEn}`;
+        const articleTest = await fetchTranslation(testEnText, 'en', 'de');
+        const testParts = articleTest.trim().split(' ');
+
+        if (testParts.length > 1) {
+          const possibleArticle = testParts[0].toLowerCase();
+          const possibleNoun = testParts.slice(1).join(' ').trim();
+
+          // SADECE ve SADECE kelime ismi çeviriyle tam eşleştiğinde artıkel ata (sıfat/zarf/edat gibi kelimeler artıkel almaz)
+          if (['der', 'die', 'das'].includes(possibleArticle) && clean(possibleNoun) === clean(resultDe)) {
+            guessedArticle = possibleArticle;
+            resultDe = resultDe.charAt(0).toUpperCase() + resultDe.slice(1);
+
+            if (guessedArticle === 'die') {
+              const isTrPlural = trLower.endsWith('lar') || trLower.endsWith('ler');
+              const isEnPlural =
+                ['children', 'people', 'men', 'women', 'teeth', 'feet', 'mice'].includes(enLower) ||
+                (enLower.endsWith('s') && enLower.length > 3 && !enLower.endsWith('ss') && !enLower.endsWith('us') && !enLower.endsWith('is') && !enLower.endsWith('news') && !enLower.endsWith('gas'));
+
+              if (isTrPlural || isEnPlural) {
+                guessedArticle = 'die (çoğul)';
+              }
             }
           }
         }
       }
 
-      if (guessedArticle === 'die') {
-        const trLower = resultTr.toLowerCase().trim();
-        const enLower = resultEn.toLowerCase().trim();
-        const isTrPlural = trLower.endsWith('lar') || trLower.endsWith('ler');
-        const isEnPlural =
-          ['children', 'people', 'men', 'women', 'teeth', 'feet', 'mice'].includes(enLower) ||
-          (enLower.endsWith('s') && enLower.length > 3 && !enLower.endsWith('ss') && !enLower.endsWith('us') && !enLower.endsWith('is') && !enLower.endsWith('news') && !enLower.endsWith('gas'));
-
-        if (isTrPlural || isEnPlural) {
-          guessedArticle = 'die (çoğul)';
+      // 3. Eğer artıkel almadıysa türünü belirle (sıfat, zarf veya diğer)
+      if (guessedArticle === 'diğer') {
+        if (enLower.endsWith('ly') || ['oft', 'immer', 'nie', 'niemals', 'manchmal', 'heute', 'gestern', 'morgen', 'hier', 'dort', 'jetzt', 'bald', 'sehr', 'schon'].includes(deLower)) {
+          guessedArticle = 'zarf';
+        } else if (
+          trLower.endsWith('li') || trLower.endsWith('lı') || trLower.endsWith('lu') || trLower.endsWith('lü') ||
+          trLower.endsWith('siz') || trLower.endsWith('sız') || trLower.endsWith('suz') || trLower.endsWith('süz') ||
+          enLower.endsWith('ful') || enLower.endsWith('ive') || enLower.endsWith('ous') || enLower.endsWith('able') ||
+          enLower.endsWith('ish') || enLower.endsWith('ic') || enLower.endsWith('al') ||
+          ['schön', 'schnell', 'gut', 'schlecht', 'groß', 'klein', 'alt', 'jung', 'neu', 'kalt', 'warm', 'heiß', 'klug', 'dumm', 'reich', 'arm', 'teuer', 'billig', 'langsam', 'einfach', 'schwer', 'leicht', 'stark', 'schwach', 'müde', 'krank', 'gesund'].includes(deLower)
+        ) {
+          guessedArticle = 'sıfat';
+        } else {
+          guessedArticle = 'diğer';
         }
+        // İsim olmayan kelimeler Almanca'da küçük harfle başlar
+        resultDe = deLower;
       }
 
       setWord(resultDe);
