@@ -46,7 +46,7 @@ export default function App() {
   const [isFlipped, setIsFlipped] = useState(false);
 
   // Games states
-  const [activeGame, setActiveGame] = useState<'menu' | 'flashcards' | 'quiz' | 'match' | 'typing' | 'article' | 'listening' | 'tf'>('menu');
+  const [activeGame, setActiveGame] = useState<'menu' | 'flashcards' | 'quiz' | 'match' | 'typing' | 'article' | 'listening' | 'tf' | 'sentence-meaning' | 'sentence-fill'>('menu');
 
   // Quiz states
   const [quizQuestions, setQuizQuestions] = useState<Record<string, any>[]>([]);
@@ -66,6 +66,7 @@ export default function App() {
   // Typing states
   const [typingQuestions, setTypingQuestions] = useState<Record<string, any>[]>([]);
   const [currentTypingIndex, setCurrentTypingIndex] = useState(0);
+  const [typingArticle, setTypingArticle] = useState('');
   const [typingInput, setTypingInput] = useState('');
   const [typingStatus, setTypingStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [typingScore, setTypingScore] = useState(0);
@@ -93,6 +94,21 @@ export default function App() {
   const [tfFinished, setTfFinished] = useState(false);
   const [tfStatus, setTfStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
   const [tfSelected, setTfSelected] = useState<'true' | 'false' | null>(null);
+
+  // Sentence Meaning Quiz states
+  const [sentenceMeaningQuestions, setSentenceMeaningQuestions] = useState<Record<string, any>[]>([]);
+  const [currentSentenceMeaningIndex, setCurrentSentenceMeaningIndex] = useState(0);
+  const [sentenceMeaningScore, setSentenceMeaningScore] = useState(0);
+  const [sentenceMeaningFinished, setSentenceMeaningFinished] = useState(false);
+  const [selectedSentenceMeaningAnswer, setSelectedSentenceMeaningAnswer] = useState<string | null>(null);
+
+  // Sentence Fill states
+  const [sentenceFillQuestions, setSentenceFillQuestions] = useState<Record<string, any>[]>([]);
+  const [currentSentenceFillIndex, setCurrentSentenceFillIndex] = useState(0);
+  const [sentenceFillInput, setSentenceFillInput] = useState('');
+  const [sentenceFillStatus, setSentenceFillStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
+  const [sentenceFillScore, setSentenceFillScore] = useState(0);
+  const [sentenceFillFinished, setSentenceFillFinished] = useState(false);
 
   // Practice settings
   const [practiceLearnedOnly, setPracticeLearnedOnly] = useState(false);
@@ -592,6 +608,7 @@ export default function App() {
     setTypingQuestions(shuffled.slice(0, 10));
     setCurrentTypingIndex(0);
     setTypingInput('');
+    setTypingArticle('');
     setTypingStatus('idle');
     setTypingScore(0);
     setTypingFinished(false);
@@ -606,7 +623,35 @@ export default function App() {
     const currentWordObj = typingQuestions[currentTypingIndex];
     const normalize = (str: string) => str.trim().toLowerCase().replace(/[.,!?;:]/g, '');
 
-    const isCorrect = normalize(typingInput) === normalize(getFullWord(currentWordObj));
+    // Kullanıcı kelime kutusuna artikeli de yazmışsa otomatik ayrıştır
+    let userArticle = typingArticle.trim().toLowerCase();
+    let userWord = typingInput.trim();
+    const parts = userWord.split(' ');
+    if (parts.length > 1 && ['der', 'die', 'das'].includes(parts[0].toLowerCase())) {
+      if (!userArticle || userArticle === 'yok' || userArticle === '-') {
+        userArticle = parts[0].toLowerCase();
+      }
+      userWord = parts.slice(1).join(' ');
+    }
+
+    const hasArticle = ['der', 'die', 'das', 'die (çoğul)'].includes(currentWordObj.article);
+    const expectedArticle = hasArticle
+      ? (currentWordObj.article === 'die (çoğul)' ? 'die' : currentWordObj.article)
+      : '';
+
+    let isArticleCorrect = false;
+    if (expectedArticle) {
+      if (currentWordObj.article === 'die (çoğul)') {
+        isArticleCorrect = userArticle === 'die' || userArticle === 'die (çoğul)';
+      } else {
+        isArticleCorrect = userArticle === expectedArticle;
+      }
+    } else {
+      isArticleCorrect = !userArticle || userArticle === 'yok' || userArticle === '-';
+    }
+
+    const isWordCorrect = normalize(userWord) === normalize(currentWordObj.word);
+    const isCorrect = isArticleCorrect && isWordCorrect;
 
     if (isCorrect) {
       setTypingStatus('correct');
@@ -621,6 +666,7 @@ export default function App() {
       if (currentTypingIndex + 1 < typingQuestions.length) {
         setCurrentTypingIndex(prev => prev + 1);
         setTypingInput('');
+        setTypingArticle('');
         setTypingStatus('idle');
       } else {
         setTypingFinished(true);
@@ -780,6 +826,94 @@ export default function App() {
   };
 
   // --- Sentence functions ---
+
+  // Sentence Meaning Quiz
+  const startSentenceMeaning = () => {
+    const pool = sentences.filter(s => s.meaning && s.meaning.trim());
+    const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, 10);
+    const questions = shuffled.map(s => {
+      const others = pool.filter(o => o.id !== s.id).sort(() => 0.5 - Math.random()).slice(0, 3);
+      let options = [s.meaning, ...others.map(o => o.meaning)];
+      options = Array.from(new Set(options));
+      while (options.length < 4 && options.length < pool.length) {
+        const r = pool[Math.floor(Math.random() * pool.length)].meaning;
+        if (!options.includes(r)) options.push(r);
+      }
+      options.sort(() => 0.5 - Math.random());
+      return { ...s, options };
+    });
+    setSentenceMeaningQuestions(questions);
+    setCurrentSentenceMeaningIndex(0);
+    setSentenceMeaningScore(0);
+    setSentenceMeaningFinished(false);
+    setSelectedSentenceMeaningAnswer(null);
+    setActiveGame('sentence-meaning');
+  };
+
+  const handleSentenceMeaningAnswer = (answer: string) => {
+    if (selectedSentenceMeaningAnswer) return;
+    setSelectedSentenceMeaningAnswer(answer);
+    const q = sentenceMeaningQuestions[currentSentenceMeaningIndex];
+    if (answer === q.meaning) setSentenceMeaningScore(prev => prev + 1);
+    setTimeout(() => {
+      if (currentSentenceMeaningIndex + 1 < sentenceMeaningQuestions.length) {
+        setCurrentSentenceMeaningIndex(prev => prev + 1);
+        setSelectedSentenceMeaningAnswer(null);
+      } else {
+        setSentenceMeaningFinished(true);
+      }
+    }, 1000);
+  };
+
+  // Sentence Fill (kelime doldurma)
+  const startSentenceFill = () => {
+    const pool = [...sentences].sort(() => 0.5 - Math.random()).slice(0, 10);
+    const questions = pool.map(s => {
+      const words = s.text.split(' ');
+      // Anlamlı bir kelime seç (tercihen uzun olanları)
+      const candidates = words
+        .map((w: string, i: number) => ({ w: w.replace(/[.,!?;:]/g, ''), i, raw: w }))
+        .filter((x: { w: string; i: number; raw: string }) => x.w.length >= 3);
+      const pick = candidates.length > 0
+        ? candidates[Math.floor(Math.random() * candidates.length)]
+        : { w: words[0].replace(/[.,!?;:]/g, ''), i: 0, raw: words[0] };
+      const blanked = words.map((w: string, i: number) =>
+        i === pick.i ? w.replace(pick.w, '___') : w
+      ).join(' ');
+      return { ...s, blanked, answer: pick.w };
+    });
+    setSentenceFillQuestions(questions);
+    setCurrentSentenceFillIndex(0);
+    setSentenceFillInput('');
+    setSentenceFillStatus('idle');
+    setSentenceFillScore(0);
+    setSentenceFillFinished(false);
+    setActiveGame('sentence-fill');
+  };
+
+  const handleSentenceFillSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (sentenceFillStatus !== 'idle') return;
+    const q = sentenceFillQuestions[currentSentenceFillIndex];
+    const normalize = (s: string) => s.trim().toLowerCase().replace(/[.,!?;:]/g, '');
+    const isCorrect = normalize(sentenceFillInput) === normalize(q.answer);
+    if (isCorrect) {
+      setSentenceFillStatus('correct');
+      setSentenceFillScore(prev => prev + 1);
+    } else {
+      setSentenceFillStatus('incorrect');
+    }
+    setTimeout(() => {
+      if (currentSentenceFillIndex + 1 < sentenceFillQuestions.length) {
+        setCurrentSentenceFillIndex(prev => prev + 1);
+        setSentenceFillInput('');
+        setSentenceFillStatus('idle');
+      } else {
+        setSentenceFillFinished(true);
+      }
+    }, 1500);
+  };
+
   const generateId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
       return crypto.randomUUID().replace(/-/g, '').substring(0, 32);
@@ -1181,6 +1315,51 @@ export default function App() {
                     </button>
                   </div>
                 )}
+
+                {/* Sentence Games Section */}
+                {sentences.length > 0 && (
+                  <div className="mt-8">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="h-px flex-1 bg-[#1F294F]"></div>
+                      <span className="text-sm font-medium text-gray-400 flex items-center gap-2">
+                        <BookMarked size={16} /> Cümle Aktiviteleri
+                      </span>
+                      <div className="h-px flex-1 bg-[#1F294F]"></div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <button
+                        onClick={startSentenceMeaning}
+                        disabled={sentences.filter(s => s.meaning && s.meaning.trim()).length < 2}
+                        className="bg-[#131B39] border border-[#1F294F] p-6 rounded-2xl shadow-xl hover:shadow-emerald-500/20 hover:border-emerald-500/50 transition-all group flex flex-col items-center text-center disabled:opacity-50 disabled:hover:border-[#1F294F] disabled:hover:shadow-none disabled:cursor-not-allowed"
+                      >
+                        <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <BookMarked className="text-emerald-500" size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">Cümle Anlamı</h3>
+                        <p className="text-gray-400 text-sm">
+                          {sentences.filter(s => s.meaning && s.meaning.trim()).length < 2
+                            ? 'En az 2 cümle (Türkçe anlamlı) gerekli'
+                            : 'Cümlenin Türkçe anlamını seçin.'}
+                        </p>
+                      </button>
+                      <button
+                        onClick={startSentenceFill}
+                        disabled={sentences.length < 1}
+                        className="bg-[#131B39] border border-[#1F294F] p-6 rounded-2xl shadow-xl hover:shadow-violet-500/20 hover:border-violet-500/50 transition-all group flex flex-col items-center text-center disabled:opacity-50 disabled:hover:border-[#1F294F] disabled:hover:shadow-none disabled:cursor-not-allowed"
+                      >
+                        <div className="w-16 h-16 bg-violet-500/20 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <Pencil className="text-violet-500" size={32} />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">Kelime Doldur</h3>
+                        <p className="text-gray-400 text-sm">
+                          {sentences.length < 1
+                            ? 'En az 1 cümle gerekli'
+                            : 'Cümledeki eksik kelimeyi yazın.'}
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : activeGame === 'flashcards' ? (
               <div className="w-full max-w-2xl mt-4 px-4">
@@ -1418,25 +1597,67 @@ export default function App() {
                   </div>
                 ) : (
                   <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-6 sm:p-8 shadow-xl text-center">
-                    <p className="text-gray-400 mb-2">Almancasını yazın (Varsa artikeliyle):</p>
+                    <p className="text-gray-400 mb-2">Almancasını yazın:</p>
                     <h2 className="text-3xl sm:text-4xl font-bold text-white break-words mb-8">{typingQuestions[currentTypingIndex]?.meaning_tr}</h2>
 
                     <form onSubmit={handleTypingSubmit} className="max-w-md mx-auto">
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={typingInput}
-                          onChange={(e) => setTypingInput(e.target.value)}
-                          disabled={typingStatus !== 'idle'}
-                          autoFocus
-                          className={`w-full px-6 py-4 bg-[#0A0F2C] border-2 rounded-xl text-xl text-center focus:outline-none transition-colors text-white ${
-                            typingStatus === 'idle' ? 'border-[#1F294F] focus:border-[#4255FF]' :
-                            typingStatus === 'correct' ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'
+                      <div className="flex gap-2 mb-4">
+                        {/* Artikel Kutucuğu */}
+                        <div
+                          className={`px-3 py-4 rounded-xl border-2 font-bold text-lg flex items-center justify-center min-w-[5.5rem] transition-all select-none ${
+                            typingArticle
+                              ? `${articleColors[typingArticle] || 'bg-[#1C2545] text-white'} border-white/30 shadow-md`
+                              : 'bg-[#0A0F2C] border-[#1F294F] text-gray-500'
                           }`}
-                          placeholder="Cevabınız..."
-                        />
-                        {typingStatus === 'correct' && <CheckCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" size={24} />}
-                        {typingStatus === 'incorrect' && <XCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500" size={24} />}
+                          title="Seçili Artikel"
+                        >
+                          {typingArticle || '-'}
+                        </div>
+
+                        {/* Kelime Kutucuğu */}
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            value={typingInput}
+                            onChange={(e) => setTypingInput(e.target.value)}
+                            disabled={typingStatus !== 'idle'}
+                            autoFocus
+                            className={`w-full px-5 py-4 bg-[#0A0F2C] border-2 rounded-xl text-xl text-center sm:text-left focus:outline-none transition-colors text-white ${
+                              typingStatus === 'idle' ? 'border-[#1F294F] focus:border-[#4255FF]' :
+                              typingStatus === 'correct' ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'
+                            }`}
+                            placeholder="Kelimeyi yazın..."
+                          />
+                          {typingStatus === 'correct' && <CheckCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" size={24} />}
+                          {typingStatus === 'incorrect' && <XCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500" size={24} />}
+                        </div>
+                      </div>
+
+                      {/* Artikel Seçim Butonları */}
+                      <div className="mb-6">
+                        <p className="text-xs text-gray-400 mb-2 font-medium">Artikel Seç (İsimse):</p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {['der', 'die', 'das', 'die (çoğul)', 'Yok (-)'].map((art) => {
+                            const isSelected = art === 'Yok (-)' ? typingArticle === '' : typingArticle === art;
+                            return (
+                              <button
+                                key={art}
+                                type="button"
+                                disabled={typingStatus !== 'idle'}
+                                onClick={() => setTypingArticle(art === 'Yok (-)' ? '' : (typingArticle === art ? '' : art))}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all border ${
+                                  isSelected
+                                    ? (art === 'Yok (-)'
+                                        ? 'bg-gray-600 text-white border-gray-400 shadow-md ring-2 ring-gray-400 scale-105'
+                                        : `${articleColors[art] || 'bg-blue-600 text-white'} border-white/50 shadow-md ring-2 ring-white/30 scale-105`)
+                                    : 'bg-[#1C2545] border-[#1F294F] text-gray-300 hover:bg-[#293561]'
+                                }`}
+                              >
+                                {art}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {typingStatus === 'incorrect' && (
@@ -1448,7 +1669,7 @@ export default function App() {
                       <button
                         type="submit"
                         disabled={!typingInput.trim() || typingStatus !== 'idle'}
-                        className="w-full mt-6 py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        className="w-full mt-2 py-4 bg-blue-600 text-white rounded-xl font-bold text-lg hover:bg-blue-700 disabled:opacity-50 transition-colors active:scale-[0.98]"
                       >
                         {typingStatus !== 'idle' ? 'Geçiliyor...' : 'Kontrol Et'}
                       </button>
@@ -1669,7 +1890,123 @@ export default function App() {
                   </div>
                 )}
               </div>
+            ) : activeGame === 'sentence-meaning' ? (
+              <div className="w-full max-w-2xl mt-4 px-4">
+                <div className="flex justify-between items-center mb-6 text-gray-400">
+                  <button onClick={() => setActiveGame('menu')} className="hover:text-white transition-colors">← Geri</button>
+                  <span>Soru {currentSentenceMeaningIndex + 1} / {sentenceMeaningQuestions.length}</span>
+                  <span className="font-bold text-emerald-400">Skor: {sentenceMeaningScore}</span>
+                </div>
+                {sentenceMeaningFinished ? (
+                  <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-10 text-center shadow-xl">
+                    <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Trophy className="text-emerald-500" size={48} />
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-4">Cümle Anlamı Bitti!</h2>
+                    <p className="text-xl text-gray-300 mb-8">Skorunuz: {sentenceMeaningScore} / {sentenceMeaningQuestions.length}</p>
+                    <div className="flex justify-center gap-4">
+                      <button onClick={() => setActiveGame('menu')} className="px-6 py-3 bg-[#1C2545] text-white rounded-xl hover:bg-[#293561] transition-colors">Menüye Dön</button>
+                      <button onClick={startSentenceMeaning} className="px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors flex items-center gap-2"><RotateCcw size={20}/> Tekrar Oyna</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-6 sm:p-8 shadow-xl">
+                    <div className="text-center mb-8">
+                      <p className="text-gray-400 text-sm mb-3">Bu cümlenin Türkçe anlamı nedir?</p>
+                      <h2 className="text-xl sm:text-2xl font-bold text-white break-words leading-relaxed">
+                        {sentenceMeaningQuestions[currentSentenceMeaningIndex]?.text}
+                      </h2>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {sentenceMeaningQuestions[currentSentenceMeaningIndex]?.options.map((opt: string, i: number) => {
+                        const isCorrect = opt === sentenceMeaningQuestions[currentSentenceMeaningIndex].meaning;
+                        const isSelected = selectedSentenceMeaningAnswer === opt;
+                        let btnClass = "bg-[#0A0F2C] border-[#1F294F] hover:border-emerald-500 text-gray-200";
+                        if (selectedSentenceMeaningAnswer) {
+                          if (isCorrect) btnClass = "bg-green-500/20 border-green-500 text-white";
+                          else if (isSelected) btnClass = "bg-red-500/20 border-red-500 text-white";
+                          else btnClass = "bg-[#0A0F2C] border-[#1F294F] opacity-50 text-gray-500";
+                        }
+                        return (
+                          <button
+                            key={i}
+                            disabled={!!selectedSentenceMeaningAnswer}
+                            onClick={() => handleSentenceMeaningAnswer(opt)}
+                            className={`p-4 rounded-xl border-2 transition-all text-base font-medium text-left break-words ${btnClass}`}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : activeGame === 'sentence-fill' ? (
+              <div className="w-full max-w-2xl mt-4 px-4">
+                <div className="flex justify-between items-center mb-6 text-gray-400">
+                  <button onClick={() => setActiveGame('menu')} className="hover:text-white transition-colors">← Geri</button>
+                  <span>Soru {currentSentenceFillIndex + 1} / {sentenceFillQuestions.length}</span>
+                  <span className="font-bold text-violet-400">Skor: {sentenceFillScore}</span>
+                </div>
+                {sentenceFillFinished ? (
+                  <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-10 text-center shadow-xl">
+                    <div className="w-24 h-24 bg-violet-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                      <Trophy className="text-violet-500" size={48} />
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-4">Kelime Doldurma Bitti!</h2>
+                    <p className="text-xl text-gray-300 mb-8">Skorunuz: {sentenceFillScore} / {sentenceFillQuestions.length}</p>
+                    <div className="flex justify-center gap-4">
+                      <button onClick={() => setActiveGame('menu')} className="px-6 py-3 bg-[#1C2545] text-white rounded-xl hover:bg-[#293561] transition-colors">Menüye Dön</button>
+                      <button onClick={startSentenceFill} className="px-6 py-3 bg-violet-600 text-white rounded-xl hover:bg-violet-700 transition-colors flex items-center gap-2"><RotateCcw size={20}/> Tekrar Oyna</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-[#131B39] border border-[#1F294F] rounded-2xl p-6 sm:p-8 shadow-xl text-center">
+                    <p className="text-gray-400 text-sm mb-4">Eksik kelimeyi yazın:</p>
+                    <h2 className="text-xl sm:text-2xl font-bold text-white break-words leading-relaxed mb-3">
+                      {sentenceFillQuestions[currentSentenceFillIndex]?.blanked}
+                    </h2>
+                    {sentenceFillQuestions[currentSentenceFillIndex]?.meaning && (
+                      <p className="text-sm text-[#4255FF] mb-8">
+                        {sentenceFillQuestions[currentSentenceFillIndex].meaning}
+                      </p>
+                    )}
+                    <form onSubmit={handleSentenceFillSubmit} className="max-w-md mx-auto">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={sentenceFillInput}
+                          onChange={(e) => setSentenceFillInput(e.target.value)}
+                          disabled={sentenceFillStatus !== 'idle'}
+                          autoFocus
+                          className={`w-full px-6 py-4 bg-[#0A0F2C] border-2 rounded-xl text-xl text-center focus:outline-none transition-colors text-white ${
+                            sentenceFillStatus === 'idle' ? 'border-[#1F294F] focus:border-violet-500' :
+                            sentenceFillStatus === 'correct' ? 'border-green-500 bg-green-500/10' : 'border-red-500 bg-red-500/10'
+                          }`}
+                          placeholder="Eksik kelime..."
+                        />
+                        {sentenceFillStatus === 'correct' && <CheckCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-green-500" size={24} />}
+                        {sentenceFillStatus === 'incorrect' && <XCircle className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500" size={24} />}
+                      </div>
+                      {sentenceFillStatus === 'incorrect' && (
+                        <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-400 font-medium text-lg">
+                          Doğru Cevap: <span className="font-bold text-white">{sentenceFillQuestions[currentSentenceFillIndex]?.answer}</span>
+                        </div>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={!sentenceFillInput.trim() || sentenceFillStatus !== 'idle'}
+                        className="w-full mt-6 py-4 bg-violet-600 text-white rounded-xl font-bold text-lg hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                      >
+                        {sentenceFillStatus !== 'idle' ? 'Geçiliyor...' : 'Kontrol Et'}
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
             ) : null}
+
           </div>
           );
         })()}
